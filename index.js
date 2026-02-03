@@ -4,7 +4,7 @@ const path = require('path')
 
 module.exports = (robot) => {
   const scriptsPath = path.resolve(__dirname, 'src')
-  robot.loadFile(scriptsPath, 'tumble.coffee')
-  robot.loadFile(scriptsPath, 'quotes.coffee')
-  robot.loadFile(scriptsPath, 'delete_tumble.coffee')
+  robot.loadFile(scriptsPath, 'links.js')
+  robot.loadFile(scriptsPath, 'quotes.js')
+  robot.loadFile(scriptsPath, 'delete_tumble.js')
 }
