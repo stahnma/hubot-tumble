@@ -1,0 +1,89 @@
+// Description
+//    Shared utilities for hubot-tumble
+//
+// Author:
+//  stahnma
+
+/**
+ * Returns an array of all names/identifiers the bot responds to.
+ * Includes the robot's name and alias (if configured).
+ */
+const getBotIdentifiers = robot => {
+  const identifiers = [];
+
+  // Add robot name (always present)
+  if (robot.name) {
+    identifiers.push(robot.name.toLowerCase());
+  }
+
+  // Add alias if configured (can be different from name)
+  if (robot.alias && robot.alias.toLowerCase() !== robot.name?.toLowerCase()) {
+    identifiers.push(robot.alias.toLowerCase());
+  }
+
+  return identifiers;
+};
+
+/**
+ * Checks if a message is from the bot itself.
+ * Compares the message author against known bot identifiers.
+ */
+const isFromBot = (robot, msg) => {
+  const userName = msg.message.user?.name?.toLowerCase();
+  if (!userName) return false;
+
+  const identifiers = getBotIdentifiers(robot);
+
+  for (const id of identifiers) {
+    if (userName === id) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Checks if a message appears to be quoting or referencing the bot.
+ * Detects patterns like:
+ *   - "> botname: message" (quote format)
+ *   - "botname: message" (attribution)
+ *   - Lines starting with the bot's name followed by punctuation
+ */
+const isQuotingBot = (robot, msg) => {
+  const text = msg.message.text?.toLowerCase() || '';
+  const identifiers = getBotIdentifiers(robot);
+
+  for (const id of identifiers) {
+    // Check for common quote/attribution patterns:
+    // - "> botname" (Slack/IRC block quote)
+    // - "botname:" at start of message
+    // - "botname said" patterns
+    if (
+      text.startsWith(`> ${id}`) ||
+      text.startsWith(`${id}:`) ||
+      text.startsWith(`${id} :`) ||
+      text.startsWith(`${id} said`) ||
+      text.startsWith(`${id} posted`)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Combined check: returns true if the message should be ignored
+ * because it's from the bot or quoting the bot.
+ */
+const shouldIgnoreMessage = (robot, msg) => {
+  return isFromBot(robot, msg) || isQuotingBot(robot, msg);
+};
+
+module.exports = {
+  getBotIdentifiers,
+  isFromBot,
+  isQuotingBot,
+  shouldIgnoreMessage,
+};
