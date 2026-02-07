@@ -37,6 +37,7 @@ Any HTTP/HTTPS URL posted in chat is automatically captured and sent to Tumble.
 
 - URLs are extracted from messages and posted to the Tumble API
 - Zoom links (`zoom.us`) are automatically excluded
+- Links prefixed with `!` are ignored (e.g., `!https://example.com` will not be posted)
 - Duplicate detection: If a link was previously posted, the bot responds with "Welcome to X ago." instead of creating a duplicate entry
 
 **Slack-specific:**

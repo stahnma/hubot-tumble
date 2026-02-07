@@ -98,6 +98,10 @@ module.exports = (robot) => {
 
     for (const w of words) {
       if (w.match(/http:\/\/|https:\/\//)) {
+        // Skip links prefixed with ! (escape character to prevent posting)
+        if (w.startsWith('!')) {
+          continue;
+        }
         url = w;
       }
     }
