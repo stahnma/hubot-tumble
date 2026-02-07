@@ -25,23 +25,18 @@ const env = process.env;
 const DELETE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // Check if a URL points to localhost (no auth required for local dev)
-const isLocalhost = (urlString) => {
+const isLocalhost = urlString => {
   if (!urlString) return false;
   try {
     const url = new URL(urlString);
     const host = url.hostname.toLowerCase();
-    return (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '::1' ||
-      host === '[::1]'
-    );
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
   } catch (e) {
     return false;
   }
 };
 
-module.exports = (robot) => {
+module.exports = robot => {
   const tumbleBase = env.HUBOT_TUMBLE_BASEURL;
   const deleteSecret = env.HUBOT_TUMBLE_DELETE_SECRET;
   const ircAdminChannel = env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
@@ -49,11 +44,7 @@ module.exports = (robot) => {
 
   // Helper to detect if we're running on Slack adapter
   const isSlack = () => {
-    return (
-      robot.adapter &&
-      robot.adapter.options &&
-      robot.adapter.options.token
-    );
+    return robot.adapter && robot.adapter.options && robot.adapter.options.token;
   };
 
   // Helper to detect if we're running on IRC adapter
@@ -62,7 +53,7 @@ module.exports = (robot) => {
   };
 
   // Check if a user is in the IRC admin channel
-  const isIrcAdmin = (nick) => {
+  const isIrcAdmin = nick => {
     if (!ircAdminChannel || !robot.adapter.bot) {
       return false;
     }
@@ -72,9 +63,7 @@ module.exports = (robot) => {
     }
     // Check if nick is in the channel (case-insensitive)
     const nickLower = nick.toLowerCase();
-    return Object.keys(channel.users).some(
-      (user) => user.toLowerCase() === nickLower
-    );
+    return Object.keys(channel.users).some(user => user.toLowerCase() === nickLower);
   };
 
   // Lazy-load WebClient only when on Slack
@@ -88,35 +77,33 @@ module.exports = (robot) => {
   };
 
   // Get link metadata from Tumble API
-  const getLinkInfo = (linkId) => {
+  const getLinkInfo = linkId => {
     return new Promise((resolve, reject) => {
-      robot
-        .http(`${tumbleBase}/link/${linkId}.json`)
-        .get()((error, response, body) => {
-          if (error) {
-            reject(new Error(`HTTP error: ${error}`));
-            return;
-          }
-          if (response.statusCode === 404) {
-            reject(new Error('not_found'));
-            return;
-          }
-          if (response.statusCode >= 400) {
-            reject(new Error(`API error: ${response.statusCode}`));
-            return;
-          }
-          try {
-            const data = JSON.parse(body);
-            resolve(data);
-          } catch (parseError) {
-            reject(new Error(`Parse error: ${parseError.message}`));
-          }
-        });
+      robot.http(`${tumbleBase}/link/${linkId}.json`).get()((error, response, body) => {
+        if (error) {
+          reject(new Error(`HTTP error: ${error}`));
+          return;
+        }
+        if (response.statusCode === 404) {
+          reject(new Error('not_found'));
+          return;
+        }
+        if (response.statusCode >= 400) {
+          reject(new Error(`API error: ${response.statusCode}`));
+          return;
+        }
+        try {
+          const data = JSON.parse(body);
+          resolve(data);
+        } catch (parseError) {
+          reject(new Error(`Parse error: ${parseError.message}`));
+        }
+      });
     });
   };
 
   // Delete link via Tumble API
-  const deleteTumbleLink = (linkId) => {
+  const deleteTumbleLink = linkId => {
     return new Promise((resolve, reject) => {
       if (!deleteSecret && !isLocal) {
         reject(new Error('no_secret'));
@@ -127,25 +114,25 @@ module.exports = (robot) => {
         req = req.header('X-Admin-Secret', deleteSecret);
       }
       req.delete()((error, response, body) => {
-          if (error) {
-            reject(new Error(`HTTP error: ${error}`));
-            return;
-          }
-          if (response.statusCode === 404) {
-            reject(new Error('not_found'));
-            return;
-          }
-          if (response.statusCode >= 400) {
-            reject(new Error(`API error: ${response.statusCode}`));
-            return;
-          }
-          resolve({ success: true });
-        });
+        if (error) {
+          reject(new Error(`HTTP error: ${error}`));
+          return;
+        }
+        if (response.statusCode === 404) {
+          reject(new Error('not_found'));
+          return;
+        }
+        if (response.statusCode >= 400) {
+          reject(new Error(`API error: ${response.statusCode}`));
+          return;
+        }
+        resolve({ success: true });
+      });
     });
   };
 
   // Check if Slack user is workspace admin
-  const isSlackAdmin = async (userId) => {
+  const isSlackAdmin = async userId => {
     const slackClient = getSlackClient();
     if (!slackClient) {
       return false;
@@ -160,7 +147,7 @@ module.exports = (robot) => {
   };
 
   // Get user display name from link info user field or message
-  const normalizeUsername = (name) => {
+  const normalizeUsername = name => {
     if (!name) return '';
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
   };
@@ -210,7 +197,7 @@ module.exports = (robot) => {
   };
 
   // Helper to get user display name, works across adapters
-  const getUserName = (msg) => {
+  const getUserName = msg => {
     const userId = msg.message.user.id;
     const room = msg.message.room;
 
@@ -238,7 +225,7 @@ module.exports = (robot) => {
   };
 
   // Extract link ID from a tumble message
-  const extractLinkId = (text) => {
+  const extractLinkId = text => {
     if (!text) return null;
     // Match patterns like "id=12345" or "/link/?id=12345"
     const match = text.match(/id=(\d+)/);
@@ -246,7 +233,7 @@ module.exports = (robot) => {
   };
 
   // Command handler: hubot tumble delete <id>
-  robot.respond(/tumble delete (\d+)/i, async (msg) => {
+  robot.respond(/tumble delete (\d+)/i, async msg => {
     const linkId = msg.match[1];
     const userId = msg.message.user.id;
     const userName = getUserName(msg);
@@ -339,7 +326,7 @@ module.exports = (robot) => {
     return;
   }
 
-  const handleReaction = async (res) => {
+  const handleReaction = async res => {
     const message = res.message;
     const item = message.item;
 
@@ -427,10 +414,7 @@ module.exports = (robot) => {
       // Log to tumble-info channel
       const reasonText = authResult.reason === 'admin' ? 'as workspace admin' : 'own link';
       const linkToMessage =
-        'https://stahnma.slack.com/archives/' +
-        item.channel +
-        '/p' +
-        item.ts.replace(/\./, '');
+        'https://stahnma.slack.com/archives/' + item.channel + '/p' + item.ts.replace(/\./, '');
 
       const logMsg = {
         text:
