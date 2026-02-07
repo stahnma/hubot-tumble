@@ -4,8 +4,29 @@ const path = require('path')
 
 module.exports = (robot) => {
   const scriptsPath = path.resolve(__dirname, 'src')
-  robot.loadFile(scriptsPath, 'links.js')
-  robot.loadFile(scriptsPath, 'quotes.js')
-  robot.loadFile(scriptsPath, 'delete_tumble.js')
-  robot.loadFile(scriptsPath, 'ping.js')
+  console.log('[hubot-tumble] Loading scripts from', scriptsPath)
+  try {
+    robot.loadFile(scriptsPath, 'links.js')
+    console.log('[hubot-tumble] Loaded links.js')
+  } catch (e) {
+    console.error('[hubot-tumble] Failed to load links.js:', e)
+  }
+  try {
+    robot.loadFile(scriptsPath, 'quotes.js')
+    console.log('[hubot-tumble] Loaded quotes.js')
+  } catch (e) {
+    console.error('[hubot-tumble] Failed to load quotes.js:', e)
+  }
+  try {
+    robot.loadFile(scriptsPath, 'delete_tumble.js')
+    console.log('[hubot-tumble] Loaded delete_tumble.js')
+  } catch (e) {
+    console.error('[hubot-tumble] Failed to load delete_tumble.js:', e)
+  }
+  try {
+    robot.loadFile(scriptsPath, 'ping.js')
+    console.log('[hubot-tumble] Loaded ping.js')
+  } catch (e) {
+    console.error('[hubot-tumble] Failed to load ping.js:', e)
+  }
 }
