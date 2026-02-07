@@ -24,6 +24,7 @@ robot.loadFile('/path/to/hubot-tumble', 'index.js')
 | Variable | Description |
 |----------|-------------|
 | `HUBOT_TUMBLE_DELETE_SECRET` | Admin secret for delete API calls. Not required when `HUBOT_TUMBLE_BASEURL` points to localhost/127.0.0.1/::1 |
+| `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` | IRC channel whose members can delete links (e.g., `#tumble-admins`). The bot must be joined to this channel. |
 | `DEBUG` | Set to `1` or `true` to enable debug logging |
 
 ## Features
@@ -41,7 +42,7 @@ Any HTTP/HTTPS URL posted in chat is automatically captured and sent to Tumble.
 - Adds a :fish: reaction to the original message
 - Posts a notification to the `#tumble-info` channel with link details and a permalink to the original Slack message
 
-**Shell adapter:**
+**IRC/Shell adapter:**
 - Responds with the tumble link ID and URL
 
 ### Quote Capture
@@ -64,7 +65,7 @@ Quotes in the format `"quote text" -- author` are automatically captured.
 - Adds a :speech_balloon: reaction to the original message
 - Posts a notification to the `#tumble-info` channel
 
-**Shell adapter:**
+**IRC/Shell adapter:**
 - Responds with confirmation of the posted quote
 
 ### Delete Links
@@ -80,10 +81,23 @@ hubot tumble delete <id>    # Delete a tumble link by ID
 - React with :x: emoji on a tumble link message to delete it
 - Adds :white_check_mark: reaction on successful deletion
 
-**Authorization (Slack only):**
+**Authorization by adapter:**
+
+| Adapter | Authorization Method |
+|---------|---------------------|
+| Slack | Own link within 5 minutes, or workspace admin |
+| IRC | Membership in `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` |
+| Shell | None (direct delete for testing) |
+
+**Slack authorization details:**
 1. **Own link within 5 minutes**: Users can delete their own links within 5 minutes of posting
 2. **Workspace admin**: Slack workspace admins/owners can delete any link at any time
 3. **Otherwise**: Deletion is denied with an appropriate message
+
+**IRC authorization:**
+- Users must be present in the channel specified by `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL`
+- The bot must be joined to this channel to track membership
+- Authorization is checked via the channel's user list in `robot.adapter.bot.chans`
 
 **Shell adapter:**
 - Direct delete without authorization checks (requires `HUBOT_TUMBLE_DELETE_SECRET` unless using localhost)
@@ -94,9 +108,12 @@ hubot tumble delete <id>    # Delete a tumble link by ID
 |----------|---------|
 | Success (own link) | "Deleted tumble link 12345 (own link)." |
 | Success (admin) | "Deleted tumble link 12345 (as workspace admin)." |
+| Success (IRC/Shell) | "Deleted tumble link 12345." |
 | Denied (not owner) | "Only alice or a workspace admin can delete this link." |
 | Denied (time expired) | "You can only delete your own links within 5 minutes of posting..." |
+| Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble links." |
 | Error (no secret) | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set." |
+| Error (IRC no channel set) | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set." |
 | Error (not found) | "Link 12345 not found." |
 
 ## Tumble API Endpoints Used

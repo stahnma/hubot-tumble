@@ -1,18 +1,22 @@
 // Description:
 //   Delete tumble entries via command or reaction
 //   - Shell adapter: Direct delete with admin secret (no auth checks)
+//   - IRC adapter: Control channel membership authorization
 //   - Slack adapter: Time-based (5 min) + admin authorization
 //
 // Configuration:
 //   HUBOT_TUMBLE_BASEURL - The uri for the tumble server
 //   HUBOT_TUMBLE_DELETE_SECRET - Admin secret for delete API calls
 //                                (not required when BASEURL is localhost/127.0.0.1/::1)
+//   HUBOT_TUMBLE_IRC_ADMIN_CHANNEL - IRC channel whose members can delete links
+//                                    (e.g., #tumble-admins)
 //
 // Commands:
 //   hubot tumble delete <id> - Delete a tumble link by ID
 //
 // Notes:
 //   On Slack, you can also react with 'x' emoji to delete a tumble link
+//   On IRC, only users in the admin channel can delete links
 //
 // Author:
 //   stahnma
@@ -40,6 +44,7 @@ const isLocalhost = (urlString) => {
 module.exports = (robot) => {
   const tumbleBase = env.HUBOT_TUMBLE_BASEURL;
   const deleteSecret = env.HUBOT_TUMBLE_DELETE_SECRET;
+  const ircAdminChannel = env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
   const isLocal = isLocalhost(tumbleBase);
 
   // Helper to detect if we're running on Slack adapter
@@ -48,6 +53,27 @@ module.exports = (robot) => {
       robot.adapter &&
       robot.adapter.options &&
       robot.adapter.options.token
+    );
+  };
+
+  // Helper to detect if we're running on IRC adapter
+  const isIrc = () => {
+    return robot.adapter && robot.adapter.bot && !isSlack();
+  };
+
+  // Check if a user is in the IRC admin channel
+  const isIrcAdmin = (nick) => {
+    if (!ircAdminChannel || !robot.adapter.bot) {
+      return false;
+    }
+    const channel = robot.adapter.bot.chans[ircAdminChannel.toLowerCase()];
+    if (!channel || !channel.users) {
+      return false;
+    }
+    // Check if nick is in the channel (case-insensitive)
+    const nickLower = nick.toLowerCase();
+    return Object.keys(channel.users).some(
+      (user) => user.toLowerCase() === nickLower
     );
   };
 
@@ -236,8 +262,24 @@ module.exports = (robot) => {
     }
 
     try {
-      // Shell adapter: direct delete without auth checks
+      // Non-Slack adapters
       if (!isSlack()) {
+        // IRC adapter: check control channel membership
+        if (isIrc()) {
+          if (!ircAdminChannel) {
+            msg.send('Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set.');
+            return;
+          }
+          if (!isIrcAdmin(userName)) {
+            msg.send(`You must be in ${ircAdminChannel} to delete tumble links.`);
+            return;
+          }
+          await deleteTumbleLink(linkId);
+          msg.send(`Deleted tumble link ${linkId}.`);
+          return;
+        }
+
+        // Shell adapter: direct delete without auth checks (for testing)
         await deleteTumbleLink(linkId);
         msg.send(`Deleted tumble link ${linkId}.`);
         return;
