@@ -129,6 +129,43 @@ hubot tumble delete <id>    # Delete a tumble link by ID
 | Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set." |
 | Error (not found)           | "Link 12345 not found."                                                   |
 
+### Delete Quotes
+
+Delete tumble quote entries via command or emoji reaction.
+
+**Commands:**
+
+```
+hubot tumble delete quote <id>    # Delete a tumble quote by ID
+```
+
+**Slack-specific:**
+
+- React with :x: emoji on a tumble quote message to delete it
+- Adds :white_check_mark: reaction on successful deletion
+
+**Authorization by adapter:**
+
+| Adapter | Authorization Method                           |
+| ------- | ---------------------------------------------- |
+| Slack   | Workspace admin only                           |
+| IRC     | Membership in `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` |
+| Shell   | None (direct delete for testing)               |
+
+> **Note:** Unlike links, quotes do not track who submitted them (only the quoted author is stored). Therefore, the "delete your own within 5 minutes" feature is not available for quotes—only admins can delete.
+
+**Response messages:**
+
+| Scenario                    | Message                                                                    |
+| --------------------------- | -------------------------------------------------------------------------- |
+| Success (admin)             | "Deleted tumble quote 12345 (as workspace admin)."                         |
+| Success (IRC/Shell)         | "Deleted tumble quote 12345."                                              |
+| Denied (not admin)          | "Only workspace admins can delete quotes (quotes do not track the original submitter)." |
+| Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble quotes."                   |
+| Error (no secret)           | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set."      |
+| Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set."  |
+| Error (not found)           | "Quote 12345 not found."                                                   |
+
 ### Status Check
 
 Check tumble configuration and server connectivity.
@@ -159,12 +196,14 @@ Tumble Status: All checks passed
 
 ## Tumble API Endpoints Used
 
-| Endpoint          | Method | Description                                      |
-| ----------------- | ------ | ------------------------------------------------ |
-| `/link/`          | POST   | Create a new link entry                          |
-| `/quote`          | POST   | Create a new quote entry                         |
-| `/link/{id}.json` | GET    | Get link metadata                                |
-| `/link/{id}`      | DELETE | Delete a link (requires `X-Admin-Secret` header) |
+| Endpoint           | Method | Description                                       |
+| ------------------ | ------ | ------------------------------------------------- |
+| `/link/`           | POST   | Create a new link entry                           |
+| `/quote/`          | POST   | Create a new quote entry                          |
+| `/link/{id}.json`  | GET    | Get link metadata                                 |
+| `/link/{id}`       | DELETE | Delete a link (requires `X-Admin-Secret` header)  |
+| `/quote/{id}.json` | GET    | Get quote metadata                                |
+| `/quote/{id}`      | DELETE | Delete a quote (requires `X-Admin-Secret` header) |
 
 ## Development
 
