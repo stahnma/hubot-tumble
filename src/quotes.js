@@ -1,5 +1,5 @@
 // Description
-//    Tumble Client
+//    Tumble Client - Quote Handler
 //
 // Dependencies:
 //    Having Tumble installed somewhere
@@ -16,25 +16,37 @@
 //    HUBOT_TUMBLE_BASEURL=http://tumble.delivery.puppetlabs.net
 //    HUBOT_TUMBLE_ROOMS=delivery,eso-team,release-new
 //
-//   Todo:
-//     Get an OAUTH token for GITHUB so $BOT can link to private github
-//     repos/pulls
-//
 // Author:
 //  stahnma
 
 const QS = require('querystring');
-const { WebClient } = require('@slack/client');
 
 const env = process.env;
 const tumble_base = env.HUBOT_TUMBLE_BASEURL;
 
 module.exports = (robot) => {
-  const web = new WebClient(robot.adapter.options.token);
+  // Helper to detect if we're running on Slack adapter
+  const isSlack = () => {
+    return (
+      robot.adapter &&
+      robot.adapter.options &&
+      robot.adapter.options.token
+    );
+  };
+
+  // Lazy-load WebClient only when on Slack
+  let web = null;
+  const getSlackClient = () => {
+    if (!web && isSlack()) {
+      const { WebClient } = require('@slack/client');
+      web = new WebClient(robot.adapter.options.token);
+    }
+    return web;
+  };
 
   // Tumble quotes:
+  // Matches: "quote text" -- author  or  "quote text" — author
   robot.hear(/^\s*(\"|")(.+?)(\"|")\s+(--|—)\s*(.+?)$/, (msg) => {
-    // Now break into quote and author
     const room = msg.message.room;
     const said = msg.message.text;
     let words;
@@ -49,7 +61,7 @@ module.exports = (robot) => {
     }
 
     let quote = words[0].trim();
-    const author = words[1];
+    const author = words[1].trim();
 
     // Remove the quotation marks themselves from the string
     quote = quote.substring(1, quote.length - 1);
@@ -61,9 +73,13 @@ module.exports = (robot) => {
       .path('/quote')
       .header('Content-Type', 'application/x-www-form-urlencoded')
       .post(data)((error, response, body) => {
-        if (response.statusCode !== 200) {
-          msg.send('Quote Failure');
-        } else {
+        if (error || (response && response.statusCode !== 200)) {
+          msg.send(`Quote Failure: ${error || response?.statusCode}`);
+          return;
+        }
+
+        // Slack-enhanced acknowledgment
+        if (isSlack() && msg.message.rawMessage) {
           const link_to_message =
             'https://stahnma.slack.com/archives/' +
             msg.message.rawMessage.channel +
@@ -72,7 +88,7 @@ module.exports = (robot) => {
 
           const ack = {
             text:
-              '<http://tumble.devops.af:4567|tumble> quote posted from <#' +
+              '<' + tumble_base + '|tumble> quote posted from <#' +
               msg.message.rawMessage.channel +
               '> by <@' +
               msg.message.user.id +
@@ -84,14 +100,20 @@ module.exports = (robot) => {
 
           robot.messageRoom('tumble-info', ack);
 
-          if (robot.adapter.options && robot.adapter.options.token) {
-            // Post emoji reaction when processing (not sure it means it worked)
-            web.reactions.add({
-              name: 'quote',
+          // Post emoji reaction
+          const slackClient = getSlackClient();
+          if (slackClient) {
+            slackClient.reactions.add({
+              name: 'speech_balloon',
               channel: msg.message.rawMessage.channel,
               timestamp: msg.message.rawMessage.ts,
+            }).catch((err) => {
+              robot.logger.warning(`Failed to add reaction: ${err}`);
             });
           }
+        } else {
+          // Simple acknowledgment for non-Slack adapters
+          msg.send(`Quote posted to tumble: "${quote}" -- ${author}`);
         }
       });
   });
