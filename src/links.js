@@ -21,25 +21,22 @@
 
 const QS = require('querystring');
 const { format } = require('timeago.js');
+const { shouldIgnoreMessage } = require('./utils');
 
 const env = process.env;
 const DEBUG = env.DEBUG === '1' || env.DEBUG === 'true';
 
 // Debug logger that only outputs when DEBUG is enabled
-const debug = (message) => {
+const debug = message => {
   if (DEBUG) {
     console.log(`[tumble-debug] ${message}`);
   }
 };
 
-module.exports = (robot) => {
+module.exports = robot => {
   // Helper to detect if we're running on Slack adapter
   const isSlack = () => {
-    return (
-      robot.adapter &&
-      robot.adapter.options &&
-      robot.adapter.options.token
-    );
+    return robot.adapter && robot.adapter.options && robot.adapter.options.token;
   };
 
   // Lazy-load WebClient only when on Slack
@@ -60,7 +57,7 @@ module.exports = (robot) => {
   robot.logger.info('Tumble base is ' + tumble_base);
 
   // Helper to get user display name, works across adapters
-  const getUserName = (msg) => {
+  const getUserName = msg => {
     const userId = msg.message.user.id;
     const room = msg.message.room;
 
@@ -88,7 +85,13 @@ module.exports = (robot) => {
   };
 
   // Process a tumble link
-  robot.hear(/http:\/\/|https:\/\//i, (msg) => {
+  robot.hear(/http:\/\/|https:\/\//i, msg => {
+    // Skip messages from the bot or quoting the bot
+    if (shouldIgnoreMessage(robot, msg)) {
+      debug('Ignoring message from/quoting bot');
+      return;
+    }
+
     const room = msg.message.room;
     const user = getUserName(msg);
 
@@ -116,7 +119,7 @@ module.exports = (robot) => {
     }
 
     // Function to post the link to tumble
-    const postLinkToTumble = (channelName) => {
+    const postLinkToTumble = channelName => {
       const queryParams = QS.stringify({
         url: url,
         user: user,
@@ -124,83 +127,88 @@ module.exports = (robot) => {
         source: 'api',
       });
       try {
-        msg
-          .http(tumble_base)
-          .path(`/link/?${queryParams}`)
-          .post('')((error, response, body) => {
-            if (error || (response && response.statusCode >= 400)) {
-              console.log(`Something went wrong posting to tumble. ${url}`);
-              console.log(`Error: ${error}, Status: ${response?.statusCode}`);
-              msg.send(`Failed to post link to tumble: ${error || response?.statusCode}`);
-              return;
-            }
+        msg.http(tumble_base).path(`/link/?${queryParams}`).post('')((error, response, body) => {
+          if (error || (response && response.statusCode >= 400)) {
+            console.log(`Something went wrong posting to tumble. ${url}`);
+            console.log(`Error: ${error}, Status: ${response?.statusCode}`);
+            msg.send(`Failed to post link to tumble: ${error || response?.statusCode}`);
+            return;
+          }
 
-            // Parse JSON response from API
-            let result;
-            let linkId;
-            let tumbleLink;
-            try {
-              result = JSON.parse(body);
-              linkId = result.link_id;
-              tumbleLink = `${tumble_base}/link/?id=${linkId}`;
-              debug(`Tumble API response: ${JSON.stringify(result)}`);
-            } catch (parseError) {
-              console.log(`Failed to parse tumble response: ${parseError}`);
-              msg.send(`Failed to parse tumble response`);
-              return;
-            }
+          // Parse JSON response from API
+          let result;
+          let linkId;
+          let tumbleLink;
+          try {
+            result = JSON.parse(body);
+            linkId = result.link_id;
+            tumbleLink = `${tumble_base}/link/${linkId}`;
+            debug(`Tumble API response: ${JSON.stringify(result)}`);
+          } catch (parseError) {
+            console.log(`Failed to parse tumble response: ${parseError}`);
+            msg.send(`Failed to parse tumble response`);
+            return;
+          }
 
-            // Check if this is a duplicate link
-            if (result.is_duplicate && result.previous_submissions && result.previous_submissions.length > 0) {
-              const originalSubmission = result.previous_submissions[0];
-              const timeAgo = format(originalSubmission.timestamp);
-              debug(`Duplicate detected, original posted: ${originalSubmission.timestamp}`);
-              msg.send(`Welcome to ${timeAgo}.`);
-              return;
-            }
+          // Check if this is a duplicate link
+          if (
+            result.is_duplicate &&
+            result.previous_submissions &&
+            result.previous_submissions.length > 0
+          ) {
+            const originalSubmission = result.previous_submissions[0];
+            const timeAgo = format(originalSubmission.timestamp);
+            debug(`Duplicate detected, original posted: ${originalSubmission.timestamp}`);
+            msg.send(`Welcome to ${timeAgo}.`);
+            return;
+          }
 
-            // Slack-enhanced acknowledgment
-            if (isSlack() && msg.message.rawMessage) {
-              const link_to_message =
-                'https://stahnma.slack.com/archives/' +
+          // Slack-enhanced acknowledgment
+          if (isSlack() && msg.message.rawMessage) {
+            const link_to_message =
+              'https://stahnma.slack.com/archives/' +
+              msg.message.rawMessage.channel +
+              '/p' +
+              msg.message.rawMessage.ts.replace(/\./, '');
+
+            const ack = {
+              text:
+                '<' +
+                tumble_base +
+                '|tumble> link <' +
+                tumbleLink +
+                '|' +
+                linkId +
+                '> posted in <#' +
                 msg.message.rawMessage.channel +
-                '/p' +
-                msg.message.rawMessage.ts.replace(/\./, '');
+                '> by <@' +
+                msg.message.user.id +
+                '> (<' +
+                link_to_message +
+                '|slack archive>)',
+              unfurl_links: false,
+            };
 
-              const ack = {
-                text:
-                  '<' + tumble_base + '|tumble> link <' +
-                  tumbleLink +
-                  '|' +
-                  linkId +
-                  '> posted in <#' +
-                  msg.message.rawMessage.channel +
-                  '> by <@' +
-                  msg.message.user.id +
-                  '> (<' +
-                  link_to_message +
-                  '|slack archive>)',
-                unfurl_links: false,
-              };
+            robot.messageRoom('tumble-info', ack);
 
-              robot.messageRoom('tumble-info', ack);
-
-              // Post emoji reaction
-              const slackClient = getSlackClient();
-              if (slackClient) {
-                slackClient.reactions.add({
+            // Post emoji reaction
+            const slackClient = getSlackClient();
+            if (slackClient) {
+              slackClient.reactions
+                .add({
                   name: 'fish',
                   channel: msg.message.rawMessage.channel,
                   timestamp: msg.message.rawMessage.ts,
-                }).catch((err) => {
+                })
+                .catch(err => {
                   robot.logger.warning(`Failed to add reaction: ${err}`);
                 });
-              }
-            } else {
-              // Simple acknowledgment for non-Slack adapters
-              msg.send(`Tumble link posted: ${tumbleLink} (id: ${linkId})`);
             }
-          });
+          } else {
+            // Simple acknowledgment for non-Slack adapters
+            msg.send(`Tumble link posted: ${tumbleLink} (id: ${linkId})`);
+          }
+        });
       } catch (error) {
         msg.send('Something went wrong posting to tumble');
         console.log(`Something went wrong posting to tumble. ${url}`);
@@ -214,11 +222,11 @@ module.exports = (robot) => {
       if (slackClient) {
         slackClient.conversations
           .info({ channel: msg.message.rawMessage.channel })
-          .then((channelobject) => {
+          .then(channelobject => {
             const channelName = channelobject.channel.name_normalized;
             postLinkToTumble(channelName);
           })
-          .catch((err) => {
+          .catch(err => {
             robot.logger.warning(`Failed to get channel info: ${err}`);
             // Fallback to room name
             postLinkToTumble(room);
