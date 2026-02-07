@@ -29,4 +29,10 @@ module.exports = (robot) => {
   } catch (e) {
     console.error('[hubot-tumble] Failed to load ping.js:', e)
   }
+  try {
+    robot.loadFile(scriptsPath, 'delete_quote.js')
+    console.log('[hubot-tumble] Loaded delete_quote.js')
+  } catch (e) {
+    console.error('[hubot-tumble] Failed to load delete_quote.js:', e)
+  }
 }
