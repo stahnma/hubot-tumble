@@ -7,4 +7,5 @@ module.exports = (robot) => {
   robot.loadFile(scriptsPath, 'links.js')
   robot.loadFile(scriptsPath, 'quotes.js')
   robot.loadFile(scriptsPath, 'delete_tumble.js')
+  robot.loadFile(scriptsPath, 'ping.js')
 }
