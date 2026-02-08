@@ -68,7 +68,8 @@ module.exports = robot => {
     // Remove the quotation marks themselves from the string
     quote = quote.substring(1, quote.length - 1);
 
-    const data = QS.stringify({ quote: quote, author: author });
+    const poster = msg.message.user.name;
+    const data = QS.stringify({ quote: quote, author: author, poster: poster });
 
     msg
       .http(tumble_base)
@@ -149,7 +150,8 @@ module.exports = robot => {
     }
 
     const quote = 'OH: ' + msg.match[1].trim();
-    const data = QS.stringify({ quote: quote });
+    const poster = msg.message.user.name;
+    const data = QS.stringify({ quote: quote, poster: poster });
 
     msg
       .http(tumble_base)
