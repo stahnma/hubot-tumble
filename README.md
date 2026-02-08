@@ -76,6 +76,31 @@ Quotes in the format `"quote text" -- author` are automatically captured.
 
 - Responds with confirmation of the posted quote
 
+### Overheard Quotes
+
+For quotes without a known author, use the "OH:" (overheard) format.
+
+**Supported formats:**
+
+```
+OH: This is something I overheard
+oh: Case insensitive
+```
+
+**Behavior:**
+
+- Quotes are posted to the Tumble `/quote` endpoint without an author
+- Case insensitive matching
+
+**Slack-specific:**
+
+- Adds a :ear: reaction to the original message
+- Posts a notification to the `#tumble-info` channel as "overheard quote"
+
+**IRC/Shell adapter:**
+
+- Responds with confirmation of the posted quote
+
 ### Delete Links
 
 Delete tumble entries via command or emoji reaction.
@@ -156,15 +181,15 @@ hubot tumble delete quote <id>    # Delete a tumble quote by ID
 
 **Response messages:**
 
-| Scenario                    | Message                                                                    |
-| --------------------------- | -------------------------------------------------------------------------- |
-| Success (admin)             | "Deleted tumble quote 12345 (as workspace admin)."                         |
-| Success (IRC/Shell)         | "Deleted tumble quote 12345."                                              |
+| Scenario                    | Message                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| Success (admin)             | "Deleted tumble quote 12345 (as workspace admin)."                                      |
+| Success (IRC/Shell)         | "Deleted tumble quote 12345."                                                           |
 | Denied (not admin)          | "Only workspace admins can delete quotes (quotes do not track the original submitter)." |
-| Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble quotes."                   |
-| Error (no secret)           | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set."      |
-| Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set."  |
-| Error (not found)           | "Quote 12345 not found."                                                   |
+| Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble quotes."                                |
+| Error (no secret)           | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set."                   |
+| Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set."               |
+| Error (not found)           | "Quote 12345 not found."                                                                |
 
 ### Status Check
 

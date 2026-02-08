@@ -231,7 +231,9 @@ module.exports = robot => {
       const isAdmin = await isSlackAdmin(userId);
 
       if (!isAdmin) {
-        msg.send('Only workspace admins can delete quotes (quotes do not track the original submitter).');
+        msg.send(
+          'Only workspace admins can delete quotes (quotes do not track the original submitter).'
+        );
         return;
       }
 
