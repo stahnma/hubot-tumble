@@ -158,7 +158,6 @@ module.exports = robot => {
             const timeAgo = format(originalSubmission.created_at);
             debug(`Duplicate detected, original posted: ${originalSubmission.created_at}`);
             msg.send(`Welcome to ${timeAgo}.`);
-            return;
           }
 
           // Slack-enhanced acknowledgment
