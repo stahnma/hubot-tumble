@@ -69,8 +69,9 @@ describe('links', function () {
       await wait(100);
 
       expect(scope.isDone()).to.be.true;
-      const response = room.messages.find(m => m[0] === 'hubot');
-      expect(response[1]).to.include('Welcome to');
+      const hubotMessages = room.messages.filter(m => m[0] === 'hubot');
+      expect(hubotMessages[0][1]).to.include('Welcome to');
+      expect(hubotMessages[1][1]).to.include('id: 999');
     });
 
     it('ignores zoom links', async function () {
