@@ -21,11 +21,11 @@ robot.loadFile('/path/to/hubot-tumble', 'index.js');
 
 ### Optional Environment Variables
 
-| Variable                         | Description                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `HUBOT_TUMBLE_DELETE_SECRET`     | Admin secret for delete API calls. Not required when `HUBOT_TUMBLE_BASEURL` points to localhost/127.0.0.1/::1 |
-| `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` | IRC channel whose members can delete links (e.g., `#tumble-admins`). The bot must be joined to this channel.  |
-| `DEBUG`                          | Set to `1` or `true` to enable debug logging                                                                  |
+| Variable                         | Description                                                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `HUBOT_TUMBLE_API_KEY`           | API key for authenticated API calls (e.g., delete). Not required when `HUBOT_TUMBLE_BASEURL` points to localhost/127.0.0.1/::1 |
+| `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` | IRC channel whose members can delete links (e.g., `#tumble-admins`). The bot must be joined to this channel.          |
+| `DEBUG`                          | Set to `1` or `true` to enable debug logging                                                                           |
 
 ## Features
 
@@ -138,7 +138,7 @@ hubot tumble delete <id>    # Delete a tumble link by ID
 
 **Shell adapter:**
 
-- Direct delete without authorization checks (requires `HUBOT_TUMBLE_DELETE_SECRET` unless using localhost)
+- Direct delete without authorization checks (requires `HUBOT_TUMBLE_API_KEY` unless using localhost)
 
 **Response messages:**
 
@@ -150,7 +150,7 @@ hubot tumble delete <id>    # Delete a tumble link by ID
 | Denied (not owner)          | "Only alice or a workspace admin can delete this link."                   |
 | Denied (time expired)       | "You can only delete your own links within 5 minutes of posting..."       |
 | Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble links."                   |
-| Error (no secret)           | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set."     |
+| Error (no API key)          | "Delete functionality requires HUBOT_TUMBLE_API_KEY to be set."     |
 | Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set." |
 | Error (not found)           | "Link 12345 not found."                                                   |
 
@@ -162,6 +162,7 @@ Delete tumble quote entries via command or emoji reaction.
 
 ```
 hubot tumble delete quote <id>    # Delete a tumble quote by ID
+hubot tumble quote delete <id>    # Alternative syntax
 ```
 
 **Slack-specific:**
@@ -187,7 +188,7 @@ hubot tumble delete quote <id>    # Delete a tumble quote by ID
 | Success (IRC/Shell)         | "Deleted tumble quote 12345."                                                           |
 | Denied (not admin)          | "Only workspace admins can delete quotes (quotes do not track the original submitter)." |
 | Denied (IRC not in channel) | "You must be in #tumble-admins to delete tumble quotes."                                |
-| Error (no secret)           | "Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set."                   |
+| Error (no API key)          | "Delete functionality requires HUBOT_TUMBLE_API_KEY to be set."                   |
 | Error (IRC no channel set)  | "Delete functionality requires HUBOT_TUMBLE_IRC_ADMIN_CHANNEL to be set."               |
 | Error (not found)           | "Quote 12345 not found."                                                                |
 
@@ -204,31 +205,31 @@ hubot tumble ping    # Check configuration and connectivity
 **Checks performed:**
 
 - `HUBOT_TUMBLE_BASEURL` - Shows configured URL or reports if missing
-- `HUBOT_TUMBLE_DELETE_SECRET` - Reports if configured (with localhost exception)
+- `HUBOT_TUMBLE_API_KEY` - Reports if configured (with localhost exception)
 - `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` - Shown only when running on IRC adapter
 - Adapter type detection (Slack, IRC, or Shell)
-- Tumble server verification - Fetches `/api/docs/openapi.json` and verifies the server identifies as Tumble
+- Tumble server verification - Fetches `/api/openapi.json` and verifies the server identifies as Tumble
 
 **Example output:**
 
 ```
 Tumble Status: All checks passed
   - HUBOT_TUMBLE_BASEURL: http://tumble.example.com
-  - HUBOT_TUMBLE_DELETE_SECRET: configured
+  - HUBOT_TUMBLE_API_KEY: configured
   - Adapter: Slack
   - Tumble server: OK (42ms, v1.0.0)
 ```
 
 ## Tumble API Endpoints Used
 
-| Endpoint           | Method | Description                                       |
-| ------------------ | ------ | ------------------------------------------------- |
-| `/link/`           | POST   | Create a new link entry                           |
-| `/quote/`          | POST   | Create a new quote entry                          |
-| `/link/{id}.json`  | GET    | Get link metadata                                 |
-| `/link/{id}`       | DELETE | Delete a link (requires `X-Admin-Secret` header)  |
-| `/quote/{id}.json` | GET    | Get quote metadata                                |
-| `/quote/{id}`      | DELETE | Delete a quote (requires `X-Admin-Secret` header) |
+| Endpoint             | Method | Description                                  |
+| -------------------- | ------ | -------------------------------------------- |
+| `/api/v1/links`      | POST   | Create a new link entry (JSON body)          |
+| `/api/v1/quotes`     | POST   | Create a new quote entry (JSON body)         |
+| `/api/v1/links/{id}` | GET    | Get link metadata                            |
+| `/api/v1/links/{id}` | DELETE | Delete a link (requires `X-API-Key` header)  |
+| `/api/v1/quotes/{id}`| GET    | Get quote metadata                           |
+| `/api/v1/quotes/{id}`| DELETE | Delete a quote (requires `X-API-Key` header) |
 
 ## Development
 
