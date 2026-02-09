@@ -19,7 +19,6 @@
 // Author:
 //  stahnma
 
-const QS = require('querystring');
 const { shouldIgnoreMessage } = require('./utils');
 
 const env = process.env;
@@ -69,25 +68,33 @@ module.exports = robot => {
     quote = quote.substring(1, quote.length - 1);
 
     const poster = msg.message.user.name;
-    const data = QS.stringify({ quote: quote, author: author, poster: poster });
+    const data = JSON.stringify({ quote: quote, author: author, poster: poster });
 
     msg
       .http(tumble_base)
-      .path('/quote/')
-      .header('Content-Type', 'application/x-www-form-urlencoded')
+      .path('/api/v1/quotes')
+      .header('Content-Type', 'application/json')
       .post(data)((error, response, body) => {
       if (error || (response && response.statusCode >= 400)) {
         msg.send(`Quote Failure: ${error || response?.statusCode}`);
         return;
       }
 
-      // API returns permalink URL as plain text (e.g., http://example.com/quote/42)
-      const permalink = body.trim();
-      // Extract quote ID from permalink URL
-      const idMatch = permalink.match(/\/quote\/(\d+)/);
-      const quoteId = idMatch ? idMatch[1] : null;
+      // Parse JSON response from API
+      let result;
+      let quoteId;
+      let permalink;
+      try {
+        result = JSON.parse(body);
+        quoteId = result.id;
+        permalink = `${tumble_base}/quote/${quoteId}`;
+      } catch (parseError) {
+        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+        return;
+      }
 
-      if (!permalink || !quoteId) {
+      if (!quoteId) {
         msg.send(`Quote may not have been saved - unexpected response: ${body}`);
         robot.logger.warning(`Tumble quote response unexpected: ${body}`);
         return;
@@ -151,25 +158,33 @@ module.exports = robot => {
 
     const quote = 'OH: ' + msg.match[1].trim();
     const poster = msg.message.user.name;
-    const data = QS.stringify({ quote: quote, poster: poster });
+    const data = JSON.stringify({ quote: quote, poster: poster });
 
     msg
       .http(tumble_base)
-      .path('/quote/')
-      .header('Content-Type', 'application/x-www-form-urlencoded')
+      .path('/api/v1/quotes')
+      .header('Content-Type', 'application/json')
       .post(data)((error, response, body) => {
       if (error || (response && response.statusCode >= 400)) {
         msg.send(`Quote Failure: ${error || response?.statusCode}`);
         return;
       }
 
-      // API returns permalink URL as plain text (e.g., http://example.com/quote/42)
-      const permalink = body.trim();
-      // Extract quote ID from permalink URL
-      const idMatch = permalink.match(/\/quote\/(\d+)/);
-      const quoteId = idMatch ? idMatch[1] : null;
+      // Parse JSON response from API
+      let result;
+      let quoteId;
+      let permalink;
+      try {
+        result = JSON.parse(body);
+        quoteId = result.id;
+        permalink = `${tumble_base}/quote/${quoteId}`;
+      } catch (parseError) {
+        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+        return;
+      }
 
-      if (!permalink || !quoteId) {
+      if (!quoteId) {
         msg.send(`Quote may not have been saved - unexpected response: ${body}`);
         robot.logger.warning(`Tumble quote response unexpected: ${body}`);
         return;

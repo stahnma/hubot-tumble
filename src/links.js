@@ -19,7 +19,6 @@
 // Author:
 //  stahnma
 
-const QS = require('querystring');
 const { format } = require('timeago.js');
 const { shouldIgnoreMessage } = require('./utils');
 
@@ -120,14 +119,13 @@ module.exports = robot => {
 
     // Function to post the link to tumble
     const postLinkToTumble = channelName => {
-      const queryParams = QS.stringify({
-        url: url,
-        user: user,
-        channel: channelName,
-        source: 'api',
-      });
+      const data = JSON.stringify({ url: url, user: user });
       try {
-        msg.http(tumble_base).path(`/link/?${queryParams}`).post('')((error, response, body) => {
+        msg
+          .http(tumble_base)
+          .path('/api/v1/links')
+          .header('Content-Type', 'application/json')
+          .post(data)((error, response, body) => {
           if (error || (response && response.statusCode >= 400)) {
             console.log(`Something went wrong posting to tumble. ${url}`);
             console.log(`Error: ${error}, Status: ${response?.statusCode}`);
@@ -141,7 +139,7 @@ module.exports = robot => {
           let tumbleLink;
           try {
             result = JSON.parse(body);
-            linkId = result.link_id;
+            linkId = result.id;
             tumbleLink = `${tumble_base}/link/${linkId}`;
             debug(`Tumble API response: ${JSON.stringify(result)}`);
           } catch (parseError) {
@@ -157,8 +155,8 @@ module.exports = robot => {
             result.previous_submissions.length > 0
           ) {
             const originalSubmission = result.previous_submissions[0];
-            const timeAgo = format(originalSubmission.timestamp);
-            debug(`Duplicate detected, original posted: ${originalSubmission.timestamp}`);
+            const timeAgo = format(originalSubmission.created_at);
+            debug(`Duplicate detected, original posted: ${originalSubmission.created_at}`);
             msg.send(`Welcome to ${timeAgo}.`);
             return;
           }

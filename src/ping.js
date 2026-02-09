@@ -3,7 +3,7 @@
 //
 // Configuration:
 //   HUBOT_TUMBLE_BASEURL - The uri for the tumble server
-//   HUBOT_TUMBLE_DELETE_SECRET - Admin secret for delete API calls
+//   HUBOT_TUMBLE_API_KEY - API key for authenticated API calls
 //
 // Commands:
 //   hubot tumble ping - Check tumble configuration and connectivity
@@ -27,7 +27,7 @@ const isLocalhost = urlString => {
 
 module.exports = robot => {
   const tumbleBase = env.HUBOT_TUMBLE_BASEURL;
-  const deleteSecret = env.HUBOT_TUMBLE_DELETE_SECRET;
+  const apiKey = env.HUBOT_TUMBLE_API_KEY;
   const ircAdminChannel = env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
   const isLocal = isLocalhost(tumbleBase);
 
@@ -98,13 +98,13 @@ module.exports = robot => {
       allPassed = false;
     }
 
-    // Check 2: HUBOT_TUMBLE_DELETE_SECRET
-    if (deleteSecret) {
-      checks.push('HUBOT_TUMBLE_DELETE_SECRET: configured');
+    // Check 2: HUBOT_TUMBLE_API_KEY
+    if (apiKey) {
+      checks.push('HUBOT_TUMBLE_API_KEY: configured');
     } else if (isLocal) {
-      checks.push('HUBOT_TUMBLE_DELETE_SECRET: not set (not required for localhost)');
+      checks.push('HUBOT_TUMBLE_API_KEY: not set (not required for localhost)');
     } else {
-      checks.push('HUBOT_TUMBLE_DELETE_SECRET: not set (delete will not work)');
+      checks.push('HUBOT_TUMBLE_API_KEY: not set (authenticated operations will not work)');
     }
 
     // Check 3: IRC admin channel (only relevant for IRC)

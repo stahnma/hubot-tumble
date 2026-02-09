@@ -6,8 +6,8 @@
 //
 // Configuration:
 //   HUBOT_TUMBLE_BASEURL - The uri for the tumble server
-//   HUBOT_TUMBLE_DELETE_SECRET - Admin secret for delete API calls
-//                                (not required when BASEURL is localhost/127.0.0.1/::1)
+//   HUBOT_TUMBLE_API_KEY - API key for authenticated API calls
+//                          (not required when BASEURL is localhost/127.0.0.1/::1)
 //   HUBOT_TUMBLE_IRC_ADMIN_CHANNEL - IRC channel whose members can delete links
 //                                    (e.g., #tumble-admins)
 //
@@ -38,7 +38,7 @@ const isLocalhost = urlString => {
 
 module.exports = robot => {
   const tumbleBase = env.HUBOT_TUMBLE_BASEURL;
-  const deleteSecret = env.HUBOT_TUMBLE_DELETE_SECRET;
+  const apiKey = env.HUBOT_TUMBLE_API_KEY;
   const ircAdminChannel = env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
   const isLocal = isLocalhost(tumbleBase);
 
@@ -79,7 +79,7 @@ module.exports = robot => {
   // Get link metadata from Tumble API
   const getLinkInfo = linkId => {
     return new Promise((resolve, reject) => {
-      robot.http(`${tumbleBase}/link/${linkId}.json`).get()((error, response, body) => {
+      robot.http(`${tumbleBase}/api/v1/links/${linkId}`).get()((error, response, body) => {
         if (error) {
           reject(new Error(`HTTP error: ${error}`));
           return;
@@ -94,6 +94,10 @@ module.exports = robot => {
         }
         try {
           const data = JSON.parse(body);
+          // Map created_at to timestamp for backward compat in canDeleteLink
+          if (data.created_at && !data.timestamp) {
+            data.timestamp = data.created_at;
+          }
           resolve(data);
         } catch (parseError) {
           reject(new Error(`Parse error: ${parseError.message}`));
@@ -105,13 +109,13 @@ module.exports = robot => {
   // Delete link via Tumble API
   const deleteTumbleLink = linkId => {
     return new Promise((resolve, reject) => {
-      if (!deleteSecret && !isLocal) {
-        reject(new Error('no_secret'));
+      if (!apiKey && !isLocal) {
+        reject(new Error('no_api_key'));
         return;
       }
-      let req = robot.http(`${tumbleBase}/link/${linkId}`);
-      if (deleteSecret) {
-        req = req.header('X-Admin-Secret', deleteSecret);
+      let req = robot.http(`${tumbleBase}/api/v1/links/${linkId}`);
+      if (apiKey) {
+        req = req.header('X-API-Key', apiKey);
       }
       req.delete()((error, response, body) => {
         if (error) {
@@ -238,8 +242,8 @@ module.exports = robot => {
     const userId = msg.message.user.id;
     const userName = getUserName(msg);
 
-    if (!deleteSecret && !isLocal) {
-      msg.send('Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set.');
+    if (!apiKey && !isLocal) {
+      msg.send('Delete functionality requires HUBOT_TUMBLE_API_KEY to be set.');
       return;
     }
 
@@ -306,8 +310,8 @@ module.exports = robot => {
     } catch (error) {
       if (error.message === 'not_found') {
         msg.send(`Link ${linkId} not found.`);
-      } else if (error.message === 'no_secret') {
-        msg.send('Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set.');
+      } else if (error.message === 'no_api_key') {
+        msg.send('Delete functionality requires HUBOT_TUMBLE_API_KEY to be set.');
       } else {
         robot.logger.error(`Failed to delete tumble link: ${error}`);
         msg.send(`Failed to delete link ${linkId}: ${error.message}`);
@@ -366,11 +370,11 @@ module.exports = robot => {
         return;
       }
 
-      if (!deleteSecret && !isLocal) {
+      if (!apiKey && !isLocal) {
         await slackClient.chat.postEphemeral({
           channel: item.channel,
           user: userId,
-          text: 'Delete functionality requires HUBOT_TUMBLE_DELETE_SECRET to be set.',
+          text: 'Delete functionality requires HUBOT_TUMBLE_API_KEY to be set.',
         });
         return;
       }
