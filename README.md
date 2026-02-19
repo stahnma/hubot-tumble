@@ -25,6 +25,8 @@ robot.loadFile('/path/to/hubot-tumble', 'index.js');
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `HUBOT_TUMBLE_API_KEY`           | API key for authenticated API calls (e.g., delete). Not required when `HUBOT_TUMBLE_BASEURL` points to localhost/127.0.0.1/::1 |
 | `HUBOT_TUMBLE_IRC_ADMIN_CHANNEL` | IRC channel whose members can delete links (e.g., `#tumble-admins`). The bot must be joined to this channel.          |
+| `HUBOT_TUMBLE_SLACK_TEAM_ID`     | Slack workspace team ID override. If not set, auto-detected via Slack `auth.test` API.                                |
+| `HUBOT_TUMBLE_IRC_NETWORK`       | IRC server hostname (e.g., `irc.libera.chat`). Sent as `client_network` in API requests.                              |
 | `DEBUG`                          | Set to `1` or `true` to enable debug logging                                                                           |
 
 ## Features
