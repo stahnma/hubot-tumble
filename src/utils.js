@@ -95,6 +95,44 @@ const isIrc = robot => {
   return !!(robot.adapter && robot.adapter.bot && !isSlack(robot));
 };
 
+/**
+ * Returns client metadata fields for the current adapter and message.
+ * Slack: all 5 fields. IRC: 4 fields (client_user_id is null).
+ * Shell/unknown: empty object.
+ */
+const getClientMetadata = (robot, msg) => {
+  if (isSlack(robot)) {
+    const userId = msg.message.user.id;
+    let userName = msg.message.user.name;
+    try {
+      const displayName = robot.brain.data.users[userId]?.slack?.profile?.display_name;
+      if (displayName) userName = displayName;
+    } catch (e) {
+      // No Slack brain data available
+    }
+
+    return {
+      client_type: 'slack',
+      client_network: robot._tumbleSlackTeamId || process.env.HUBOT_TUMBLE_SLACK_TEAM_ID || null,
+      client_channel: msg.message.room,
+      client_user_id: userId,
+      client_user_name: userName,
+    };
+  }
+
+  if (isIrc(robot)) {
+    return {
+      client_type: 'irc',
+      client_network: process.env.HUBOT_TUMBLE_IRC_NETWORK || null,
+      client_channel: msg.message.room,
+      client_user_id: null,
+      client_user_name: msg.message.user.name,
+    };
+  }
+
+  return {};
+};
+
 module.exports = {
   getBotIdentifiers,
   isFromBot,
@@ -102,4 +140,5 @@ module.exports = {
   shouldIgnoreMessage,
   isSlack,
   isIrc,
+  getClientMetadata,
 };
