@@ -81,9 +81,25 @@ const shouldIgnoreMessage = (robot, msg) => {
   return isFromBot(robot, msg) || isQuotingBot(robot, msg);
 };
 
+/**
+ * Checks if the robot is running on the Slack adapter.
+ */
+const isSlack = robot => {
+  return !!(robot.adapter && robot.adapter.options && robot.adapter.options.token);
+};
+
+/**
+ * Checks if the robot is running on the IRC adapter.
+ */
+const isIrc = robot => {
+  return !!(robot.adapter && robot.adapter.bot && !isSlack(robot));
+};
+
 module.exports = {
   getBotIdentifiers,
   isFromBot,
   isQuotingBot,
   shouldIgnoreMessage,
+  isSlack,
+  isIrc,
 };
