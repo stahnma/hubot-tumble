@@ -133,6 +133,34 @@ const getClientMetadata = (robot, msg) => {
   return {};
 };
 
+/**
+ * Resolves and caches the Slack workspace team ID on robot._tumbleSlackTeamId.
+ * Resolution order:
+ *   1. Already cached on robot._tumbleSlackTeamId — return immediately
+ *   2. HUBOT_TUMBLE_SLACK_TEAM_ID env var — use it, skip API call
+ *   3. Slack auth.test API call — fetch and cache team_id
+ * Non-Slack adapters: returns immediately (no-op).
+ * Rejects if auth.test fails on Slack (prevents listener registration).
+ */
+const ensureSlackTeamId = async robot => {
+  if (!isSlack(robot)) return;
+
+  if (robot._tumbleSlackTeamId) return;
+
+  const envTeamId = process.env.HUBOT_TUMBLE_SLACK_TEAM_ID;
+  if (envTeamId) {
+    robot._tumbleSlackTeamId = envTeamId;
+    robot.logger.info(`tumble: Slack team ID from env: ${envTeamId}`);
+    return;
+  }
+
+  const { WebClient } = require('@slack/client');
+  const web = new WebClient(robot.adapter.options.token);
+  const result = await web.auth.test();
+  robot._tumbleSlackTeamId = result.team_id;
+  robot.logger.info(`tumble: Slack team ID resolved: ${result.team_id}`);
+};
+
 module.exports = {
   getBotIdentifiers,
   isFromBot,
@@ -141,4 +169,5 @@ module.exports = {
   isSlack,
   isIrc,
   getClientMetadata,
+  ensureSlackTeamId,
 };

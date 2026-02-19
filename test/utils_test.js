@@ -1,4 +1,4 @@
-const { expect } = require('./test_helper');
+const { expect, sinon } = require('./test_helper');
 
 const { isSlack, isIrc } = require('../src/utils');
 
@@ -147,6 +147,42 @@ describe('utils', function () {
 
       const result = getClientMetadata(robot, msg);
       expect(result).to.deep.equal({});
+    });
+  });
+
+  describe('ensureSlackTeamId', function () {
+    const { ensureSlackTeamId } = require('../src/utils');
+
+    afterEach(function () {
+      delete process.env.HUBOT_TUMBLE_SLACK_TEAM_ID;
+    });
+
+    it('is a no-op for non-Slack adapters', async function () {
+      const robot = { adapter: {}, logger: { info: sinon.spy() } };
+      await ensureSlackTeamId(robot);
+      expect(robot._tumbleSlackTeamId).to.be.undefined;
+    });
+
+    it('uses env var when HUBOT_TUMBLE_SLACK_TEAM_ID is set', async function () {
+      process.env.HUBOT_TUMBLE_SLACK_TEAM_ID = 'T-ENV-123';
+      const robot = {
+        adapter: { options: { token: 'xoxb-fake' } },
+        logger: { info: sinon.spy() },
+      };
+
+      await ensureSlackTeamId(robot);
+      expect(robot._tumbleSlackTeamId).to.equal('T-ENV-123');
+    });
+
+    it('skips API call when team ID already cached', async function () {
+      const robot = {
+        adapter: { options: { token: 'xoxb-fake' } },
+        _tumbleSlackTeamId: 'T-CACHED',
+        logger: { info: sinon.spy() },
+      };
+
+      await ensureSlackTeamId(robot);
+      expect(robot._tumbleSlackTeamId).to.equal('T-CACHED');
     });
   });
 });
