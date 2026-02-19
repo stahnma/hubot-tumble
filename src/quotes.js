@@ -19,7 +19,7 @@
 // Author:
 //  stahnma
 
-const { shouldIgnoreMessage } = require('./utils');
+const { shouldIgnoreMessage, ensureSlackTeamId, getClientMetadata } = require('./utils');
 
 const env = process.env;
 const tumble_base = env.HUBOT_TUMBLE_BASEURL;
@@ -40,201 +40,209 @@ module.exports = robot => {
     return web;
   };
 
-  // Tumble quotes:
-  // Matches: "quote text" -- author  or  "quote text" — author
-  robot.hear(/^\s*(\"|")(.+?)(\"|")\s+(--|—)\s*(.+?)$/, msg => {
-    // Skip messages from the bot or quoting the bot
-    if (shouldIgnoreMessage(robot, msg)) {
-      return;
-    }
-
-    const room = msg.message.room;
-    const said = msg.message.text;
-    let words;
-
-    // this is two hyphens
-    if (/--/.test(said)) {
-      words = said.split('--');
-    }
-    // this is em-dash
-    if (/—/.test(said)) {
-      words = said.split('—');
-    }
-
-    let quote = words[0].trim();
-    const author = words[1].trim();
-
-    // Remove the quotation marks themselves from the string
-    quote = quote.substring(1, quote.length - 1);
-
-    const poster = msg.message.user.name;
-    const data = JSON.stringify({ quote: quote, author: author, poster: poster });
-
-    msg
-      .http(tumble_base)
-      .path('/api/v1/quotes')
-      .header('Content-Type', 'application/json')
-      .post(data)((error, response, body) => {
-      if (error || (response && response.statusCode >= 400)) {
-        msg.send(`Quote Failure: ${error || response?.statusCode}`);
-        return;
-      }
-
-      // Parse JSON response from API
-      let result;
-      let quoteId;
-      let permalink;
-      try {
-        result = JSON.parse(body);
-        quoteId = result.id;
-        permalink = `${tumble_base}/quote/${quoteId}`;
-      } catch (parseError) {
-        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
-        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
-        return;
-      }
-
-      if (!quoteId) {
-        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
-        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
-        return;
-      }
-
-      // Slack-enhanced acknowledgment
-      if (isSlack() && msg.message.rawMessage) {
-        const link_to_message =
-          'https://stahnma.slack.com/archives/' +
-          msg.message.rawMessage.channel +
-          '/p' +
-          msg.message.rawMessage.ts.replace(/\./, '');
-
-        const ack = {
-          text:
-            '<' +
-            tumble_base +
-            '|tumble> quote <' +
-            permalink +
-            '|' +
-            quoteId +
-            '> posted from <#' +
-            msg.message.rawMessage.channel +
-            '> by <@' +
-            msg.message.user.id +
-            '> (<' +
-            link_to_message +
-            '|slack archive>)',
-          unfurl_links: false,
-        };
-
-        robot.messageRoom('tumble-info', ack);
-
-        // Post emoji reaction
-        const slackClient = getSlackClient();
-        if (slackClient) {
-          slackClient.reactions
-            .add({
-              name: 'speech_balloon',
-              channel: msg.message.rawMessage.channel,
-              timestamp: msg.message.rawMessage.ts,
-            })
-            .catch(err => {
-              robot.logger.warning(`Failed to add reaction: ${err}`);
-            });
+  ensureSlackTeamId(robot)
+    .then(() => {
+      // Tumble quotes:
+      // Matches: "quote text" -- author  or  "quote text" — author
+      robot.hear(/^\s*(\"|")(.+?)(\"|")\s+(--|—)\s*(.+?)$/, msg => {
+        // Skip messages from the bot or quoting the bot
+        if (shouldIgnoreMessage(robot, msg)) {
+          return;
         }
-      } else {
-        // Simple acknowledgment for non-Slack adapters
-        msg.send(`Quote Added: ${permalink}`);
-      }
-    });
-  });
 
-  // Overheard quotes - no author required
-  // Matches: OH: some text here
-  robot.hear(/^OH:\s+(.+)$/i, msg => {
-    // Skip messages from the bot
-    if (shouldIgnoreMessage(robot, msg)) {
-      return;
-    }
+        const room = msg.message.room;
+        const said = msg.message.text;
+        let words;
 
-    const quote = 'OH: ' + msg.match[1].trim();
-    const poster = msg.message.user.name;
-    const data = JSON.stringify({ quote: quote, poster: poster });
-
-    msg
-      .http(tumble_base)
-      .path('/api/v1/quotes')
-      .header('Content-Type', 'application/json')
-      .post(data)((error, response, body) => {
-      if (error || (response && response.statusCode >= 400)) {
-        msg.send(`Quote Failure: ${error || response?.statusCode}`);
-        return;
-      }
-
-      // Parse JSON response from API
-      let result;
-      let quoteId;
-      let permalink;
-      try {
-        result = JSON.parse(body);
-        quoteId = result.id;
-        permalink = `${tumble_base}/quote/${quoteId}`;
-      } catch (parseError) {
-        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
-        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
-        return;
-      }
-
-      if (!quoteId) {
-        msg.send(`Quote may not have been saved - unexpected response: ${body}`);
-        robot.logger.warning(`Tumble quote response unexpected: ${body}`);
-        return;
-      }
-
-      // Slack-enhanced acknowledgment
-      if (isSlack() && msg.message.rawMessage) {
-        const link_to_message =
-          'https://stahnma.slack.com/archives/' +
-          msg.message.rawMessage.channel +
-          '/p' +
-          msg.message.rawMessage.ts.replace(/\./, '');
-
-        const ack = {
-          text:
-            '<' +
-            tumble_base +
-            '|tumble> overheard quote <' +
-            permalink +
-            '|' +
-            quoteId +
-            '> posted from <#' +
-            msg.message.rawMessage.channel +
-            '> by <@' +
-            msg.message.user.id +
-            '> (<' +
-            link_to_message +
-            '|slack archive>)',
-          unfurl_links: false,
-        };
-
-        robot.messageRoom('tumble-info', ack);
-
-        // Post emoji reaction
-        const slackClient = getSlackClient();
-        if (slackClient) {
-          slackClient.reactions
-            .add({
-              name: 'ear',
-              channel: msg.message.rawMessage.channel,
-              timestamp: msg.message.rawMessage.ts,
-            })
-            .catch(err => {
-              robot.logger.warning(`Failed to add reaction: ${err}`);
-            });
+        // this is two hyphens
+        if (/--/.test(said)) {
+          words = said.split('--');
         }
-      } else {
-        // Simple acknowledgment for non-Slack adapters
-        msg.send(`Quote Added: ${permalink}`);
-      }
+        // this is em-dash
+        if (/—/.test(said)) {
+          words = said.split('—');
+        }
+
+        let quote = words[0].trim();
+        const author = words[1].trim();
+
+        // Remove the quotation marks themselves from the string
+        quote = quote.substring(1, quote.length - 1);
+
+        const poster = msg.message.user.name;
+        const client = getClientMetadata(robot, msg);
+        const data = JSON.stringify({ quote: quote, author: author, poster: poster, ...client });
+
+        msg
+          .http(tumble_base)
+          .path('/api/v1/quotes')
+          .header('Content-Type', 'application/json')
+          .post(data)((error, response, body) => {
+          if (error || (response && response.statusCode >= 400)) {
+            msg.send(`Quote Failure: ${error || response?.statusCode}`);
+            return;
+          }
+
+          // Parse JSON response from API
+          let result;
+          let quoteId;
+          let permalink;
+          try {
+            result = JSON.parse(body);
+            quoteId = result.id;
+            permalink = `${tumble_base}/quote/${quoteId}`;
+          } catch (parseError) {
+            msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+            robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+            return;
+          }
+
+          if (!quoteId) {
+            msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+            robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+            return;
+          }
+
+          // Slack-enhanced acknowledgment
+          if (isSlack() && msg.message.rawMessage) {
+            const link_to_message =
+              'https://stahnma.slack.com/archives/' +
+              msg.message.rawMessage.channel +
+              '/p' +
+              msg.message.rawMessage.ts.replace(/\./, '');
+
+            const ack = {
+              text:
+                '<' +
+                tumble_base +
+                '|tumble> quote <' +
+                permalink +
+                '|' +
+                quoteId +
+                '> posted from <#' +
+                msg.message.rawMessage.channel +
+                '> by <@' +
+                msg.message.user.id +
+                '> (<' +
+                link_to_message +
+                '|slack archive>)',
+              unfurl_links: false,
+            };
+
+            robot.messageRoom('tumble-info', ack);
+
+            // Post emoji reaction
+            const slackClient = getSlackClient();
+            if (slackClient) {
+              slackClient.reactions
+                .add({
+                  name: 'speech_balloon',
+                  channel: msg.message.rawMessage.channel,
+                  timestamp: msg.message.rawMessage.ts,
+                })
+                .catch(err => {
+                  robot.logger.warning(`Failed to add reaction: ${err}`);
+                });
+            }
+          } else {
+            // Simple acknowledgment for non-Slack adapters
+            msg.send(`Quote Added: ${permalink}`);
+          }
+        });
+      });
+
+      // Overheard quotes - no author required
+      // Matches: OH: some text here
+      robot.hear(/^OH:\s+(.+)$/i, msg => {
+        // Skip messages from the bot
+        if (shouldIgnoreMessage(robot, msg)) {
+          return;
+        }
+
+        const quote = 'OH: ' + msg.match[1].trim();
+        const poster = msg.message.user.name;
+        const client = getClientMetadata(robot, msg);
+        const data = JSON.stringify({ quote: quote, poster: poster, ...client });
+
+        msg
+          .http(tumble_base)
+          .path('/api/v1/quotes')
+          .header('Content-Type', 'application/json')
+          .post(data)((error, response, body) => {
+          if (error || (response && response.statusCode >= 400)) {
+            msg.send(`Quote Failure: ${error || response?.statusCode}`);
+            return;
+          }
+
+          // Parse JSON response from API
+          let result;
+          let quoteId;
+          let permalink;
+          try {
+            result = JSON.parse(body);
+            quoteId = result.id;
+            permalink = `${tumble_base}/quote/${quoteId}`;
+          } catch (parseError) {
+            msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+            robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+            return;
+          }
+
+          if (!quoteId) {
+            msg.send(`Quote may not have been saved - unexpected response: ${body}`);
+            robot.logger.warning(`Tumble quote response unexpected: ${body}`);
+            return;
+          }
+
+          // Slack-enhanced acknowledgment
+          if (isSlack() && msg.message.rawMessage) {
+            const link_to_message =
+              'https://stahnma.slack.com/archives/' +
+              msg.message.rawMessage.channel +
+              '/p' +
+              msg.message.rawMessage.ts.replace(/\./, '');
+
+            const ack = {
+              text:
+                '<' +
+                tumble_base +
+                '|tumble> overheard quote <' +
+                permalink +
+                '|' +
+                quoteId +
+                '> posted from <#' +
+                msg.message.rawMessage.channel +
+                '> by <@' +
+                msg.message.user.id +
+                '> (<' +
+                link_to_message +
+                '|slack archive>)',
+              unfurl_links: false,
+            };
+
+            robot.messageRoom('tumble-info', ack);
+
+            // Post emoji reaction
+            const slackClient = getSlackClient();
+            if (slackClient) {
+              slackClient.reactions
+                .add({
+                  name: 'ear',
+                  channel: msg.message.rawMessage.channel,
+                  timestamp: msg.message.rawMessage.ts,
+                })
+                .catch(err => {
+                  robot.logger.warning(`Failed to add reaction: ${err}`);
+                });
+            }
+          } else {
+            // Simple acknowledgment for non-Slack adapters
+            msg.send(`Quote Added: ${permalink}`);
+          }
+        });
+      });
+    })
+    .catch(err => {
+      robot.logger.error(`tumble: Failed to initialize quotes module: ${err.message}`);
     });
-  });
 };
