@@ -24,6 +24,8 @@ const cleanupEnv = () => {
   delete process.env.HUBOT_TUMBLE_BASEURL;
   delete process.env.HUBOT_TUMBLE_API_KEY;
   delete process.env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
+  delete process.env.HUBOT_TUMBLE_SLACK_TEAM_ID;
+  delete process.env.HUBOT_TUMBLE_IRC_NETWORK;
   delete process.env.DEBUG;
 };
 
