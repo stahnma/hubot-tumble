@@ -5,9 +5,10 @@ const helper = new Helper('../src/quotes.js');
 describe('quotes', function () {
   let room;
 
-  beforeEach(function () {
+  beforeEach(async function () {
     setupEnv();
     room = helper.createRoom();
+    await wait();
     nock.cleanAll();
   });
 
@@ -207,6 +208,92 @@ describe('quotes', function () {
       expect(scope.isDone()).to.be.true;
       const response = room.messages.find(m => m[0] === 'hubot');
       expect(response[1]).to.include('Quote Failure');
+    });
+  });
+
+  describe('client metadata', function () {
+    it('sends Slack client fields for standard quotes', async function () {
+      room.robot.adapter.options = { token: 'xoxb-fake' };
+      room.robot._tumbleSlackTeamId = 'T12345';
+      room.robot.brain.data.users = {};
+
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/quotes', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 200 });
+
+      await room.user.say('alice', '"Great quote" -- Author');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.equal('slack');
+      expect(capturedBody.client_network).to.equal('T12345');
+      expect(capturedBody.client_channel).to.equal('room1');
+      expect(capturedBody.client_user_id).to.equal('alice');
+      expect(capturedBody.client_user_name).to.equal('alice');
+    });
+
+    it('sends IRC client fields for standard quotes', async function () {
+      room.robot.adapter.options = {};
+      room.robot.adapter.bot = {};
+      process.env.HUBOT_TUMBLE_IRC_NETWORK = 'irc.libera.chat';
+
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/quotes', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 201 });
+
+      await room.user.say('alice', '"IRC quote" -- Someone');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.equal('irc');
+      expect(capturedBody.client_network).to.equal('irc.libera.chat');
+      expect(capturedBody.client_user_id).to.be.null;
+      expect(capturedBody.client_user_name).to.equal('alice');
+    });
+
+    it('sends Slack client fields for overheard quotes', async function () {
+      room.robot.adapter.options = { token: 'xoxb-fake' };
+      room.robot._tumbleSlackTeamId = 'T12345';
+      room.robot.brain.data.users = {};
+
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/quotes', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 202 });
+
+      await room.user.say('alice', 'OH: Something funny');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.equal('slack');
+      expect(capturedBody.client_network).to.equal('T12345');
+    });
+
+    it('does not send client fields on Shell adapter', async function () {
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/quotes', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 203 });
+
+      await room.user.say('alice', '"Shell quote" -- Author');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.be.undefined;
     });
   });
 });

@@ -293,8 +293,10 @@ module.exports = robot => {
       // Log to tumble-info channel
       if (msg.message.rawMessage) {
         const slackClient = getSlackClient();
+        const slackUrl = robot._tumbleSlackUrl || 'https://slack.com';
         const linkToMessage =
-          'https://stahnma.slack.com/archives/' +
+          slackUrl +
+          '/archives/' +
           msg.message.rawMessage.channel +
           '/p' +
           msg.message.rawMessage.ts.replace(/\./, '');
@@ -417,8 +419,9 @@ module.exports = robot => {
 
       // Log to tumble-info channel
       const reasonText = authResult.reason === 'admin' ? 'as workspace admin' : 'own link';
+      const slackUrl = robot._tumbleSlackUrl || 'https://slack.com';
       const linkToMessage =
-        'https://stahnma.slack.com/archives/' + item.channel + '/p' + item.ts.replace(/\./, '');
+        slackUrl + '/archives/' + item.channel + '/p' + item.ts.replace(/\./, '');
 
       const logMsg = {
         text:

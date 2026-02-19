@@ -20,7 +20,7 @@
 //  stahnma
 
 const { format } = require('timeago.js');
-const { shouldIgnoreMessage } = require('./utils');
+const { shouldIgnoreMessage, ensureSlackTeamId, getClientMetadata } = require('./utils');
 
 const env = process.env;
 const DEBUG = env.DEBUG === '1' || env.DEBUG === 'true';
@@ -83,8 +83,11 @@ module.exports = robot => {
     return 'unknown';
   };
 
-  // Process a tumble link
-  robot.hear(/http:\/\/|https:\/\//i, msg => {
+  // Gate listener registration on Slack team ID resolution
+  ensureSlackTeamId(robot)
+    .then(() => {
+      // Process a tumble link
+      robot.hear(/http:\/\/|https:\/\//i, msg => {
     // Skip messages from the bot or quoting the bot
     if (shouldIgnoreMessage(robot, msg)) {
       debug('Ignoring message from/quoting bot');
@@ -119,7 +122,8 @@ module.exports = robot => {
 
     // Function to post the link to tumble
     const postLinkToTumble = channelName => {
-      const data = JSON.stringify({ url: url, user: user });
+      const client = getClientMetadata(robot, msg);
+      const data = JSON.stringify({ url: url, user: user, ...client });
       try {
         msg
           .http(tumble_base)
@@ -162,8 +166,10 @@ module.exports = robot => {
 
           // Slack-enhanced acknowledgment
           if (isSlack() && msg.message.rawMessage) {
+            const slackUrl = robot._tumbleSlackUrl || 'https://slack.com';
             const link_to_message =
-              'https://stahnma.slack.com/archives/' +
+              slackUrl +
+              '/archives/' +
               msg.message.rawMessage.channel +
               '/p' +
               msg.message.rawMessage.ts.replace(/\./, '');
@@ -234,5 +240,9 @@ module.exports = robot => {
 
     // For non-Slack adapters, use the room name directly
     postLinkToTumble(room);
-  });
+      });
+    })
+    .catch(err => {
+      robot.logger.error(`tumble: Failed to initialize links module: ${err.message}`);
+    });
 };

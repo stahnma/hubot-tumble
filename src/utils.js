@@ -81,9 +81,96 @@ const shouldIgnoreMessage = (robot, msg) => {
   return isFromBot(robot, msg) || isQuotingBot(robot, msg);
 };
 
+/**
+ * Checks if the robot is running on the Slack adapter.
+ */
+const isSlack = robot => {
+  return !!(robot.adapter && robot.adapter.options && robot.adapter.options.token);
+};
+
+/**
+ * Checks if the robot is running on the IRC adapter.
+ */
+const isIrc = robot => {
+  return !!(robot.adapter && robot.adapter.bot && !isSlack(robot));
+};
+
+/**
+ * Returns client metadata fields for the current adapter and message.
+ * Slack: all 5 fields. IRC: 4 fields (client_user_id is null).
+ * Shell/unknown: empty object.
+ */
+const getClientMetadata = (robot, msg) => {
+  if (isSlack(robot)) {
+    const userId = msg.message.user.id;
+    let userName = msg.message.user.name;
+    try {
+      const displayName = robot.brain.data.users[userId]?.slack?.profile?.display_name;
+      if (displayName) userName = displayName;
+    } catch (e) {
+      // No Slack brain data available
+    }
+
+    return {
+      client_type: 'slack',
+      client_network: robot._tumbleSlackTeamId || process.env.HUBOT_TUMBLE_SLACK_TEAM_ID || null,
+      client_channel: msg.message.room,
+      client_user_id: userId,
+      client_user_name: userName,
+    };
+  }
+
+  if (isIrc(robot)) {
+    return {
+      client_type: 'irc',
+      client_network: process.env.HUBOT_TUMBLE_IRC_NETWORK || null,
+      client_channel: msg.message.room,
+      client_user_id: null,
+      client_user_name: msg.message.user.name,
+    };
+  }
+
+  return {};
+};
+
+/**
+ * Resolves and caches the Slack workspace team ID on robot._tumbleSlackTeamId.
+ * Resolution order:
+ *   1. Already cached on robot._tumbleSlackTeamId — return immediately
+ *   2. HUBOT_TUMBLE_SLACK_TEAM_ID env var — use it, skip API call
+ *   3. Slack auth.test API call — fetch and cache team_id
+ * Non-Slack adapters: returns immediately (no-op).
+ * Rejects if auth.test fails on Slack (prevents listener registration).
+ */
+const ensureSlackTeamId = async robot => {
+  if (!isSlack(robot)) return;
+
+  if (robot._tumbleSlackTeamId) return;
+
+  const envTeamId = process.env.HUBOT_TUMBLE_SLACK_TEAM_ID;
+  if (envTeamId) {
+    robot._tumbleSlackTeamId = envTeamId;
+    robot.logger.info(`tumble: Slack team ID from env: ${envTeamId}`);
+    return;
+  }
+
+  const { WebClient } = require('@slack/client');
+  const web = new WebClient(robot.adapter.options.token);
+  const result = await web.auth.test();
+  robot._tumbleSlackTeamId = result.team_id;
+  if (result.url) {
+    robot._tumbleSlackUrl = result.url.replace(/\/$/, '');
+  }
+  robot.logger.info(`tumble: Slack team ID resolved: ${result.team_id}`);
+};
+
 module.exports = {
   getBotIdentifiers,
   isFromBot,
   isQuotingBot,
   shouldIgnoreMessage,
+  isSlack,
+  isIrc,
+  getClientMetadata,
+  ensureSlackTeamId,
 };
