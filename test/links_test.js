@@ -5,9 +5,10 @@ const helper = new Helper('../src/links.js');
 describe('links', function () {
   let room;
 
-  beforeEach(function () {
+  beforeEach(async function () {
     setupEnv();
     room = helper.createRoom();
+    await wait();
     nock.cleanAll();
   });
 
@@ -103,6 +104,26 @@ describe('links', function () {
       expect(response[1]).to.include('Failed to post link');
     });
 
+    it('does not send client fields on Shell adapter', async function () {
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/links', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 789 });
+
+      await room.user.say('alice', 'https://example.com/shell-test');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.be.undefined;
+      expect(capturedBody.client_network).to.be.undefined;
+      expect(capturedBody.client_channel).to.be.undefined;
+      expect(capturedBody.client_user_id).to.be.undefined;
+      expect(capturedBody.client_user_name).to.be.undefined;
+    });
+
     it('extracts the last URL from a message with multiple URLs', async function () {
       let capturedBody;
       const scope = nock(TUMBLE_BASE)
@@ -146,6 +167,58 @@ describe('links', function () {
       expect(scope.isDone()).to.be.true;
       const response = room.messages.find(m => m[0] === 'hubot');
       expect(response[1]).to.include('Failed to parse');
+    });
+  });
+
+  describe('client metadata', function () {
+    it('sends Slack client fields in POST body', async function () {
+      // Mock Slack adapter on the room's robot
+      room.robot.adapter.options = { token: 'xoxb-fake' };
+      room.robot._tumbleSlackTeamId = 'T12345';
+      room.robot.brain.data.users = {};
+
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/links', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 555 });
+
+      await room.user.say('alice', 'https://example.com/slack-test');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.equal('slack');
+      expect(capturedBody.client_network).to.equal('T12345');
+      expect(capturedBody.client_channel).to.equal('room1');
+      expect(capturedBody.client_user_id).to.equal('alice');
+      expect(capturedBody.client_user_name).to.equal('alice');
+    });
+
+    it('sends IRC client fields in POST body', async function () {
+      // Mock IRC adapter on the room's robot
+      room.robot.adapter.options = {};
+      room.robot.adapter.bot = {};
+      process.env.HUBOT_TUMBLE_IRC_NETWORK = 'irc.libera.chat';
+
+      let capturedBody;
+      const scope = nock(TUMBLE_BASE)
+        .post('/api/v1/links', body => {
+          capturedBody = body;
+          return true;
+        })
+        .reply(200, { id: 556 });
+
+      await room.user.say('alice', 'https://example.com/irc-test');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.true;
+      expect(capturedBody.client_type).to.equal('irc');
+      expect(capturedBody.client_network).to.equal('irc.libera.chat');
+      expect(capturedBody.client_channel).to.equal('room1');
+      expect(capturedBody.client_user_id).to.be.null;
+      expect(capturedBody.client_user_name).to.equal('alice');
     });
   });
 });
