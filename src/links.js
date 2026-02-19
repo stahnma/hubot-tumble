@@ -166,8 +166,10 @@ module.exports = robot => {
 
           // Slack-enhanced acknowledgment
           if (isSlack() && msg.message.rawMessage) {
+            const slackUrl = robot._tumbleSlackUrl || 'https://slack.com';
             const link_to_message =
-              'https://stahnma.slack.com/archives/' +
+              slackUrl +
+              '/archives/' +
               msg.message.rawMessage.channel +
               '/p' +
               msg.message.rawMessage.ts.replace(/\./, '');

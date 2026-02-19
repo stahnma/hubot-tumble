@@ -158,6 +158,9 @@ const ensureSlackTeamId = async robot => {
   const web = new WebClient(robot.adapter.options.token);
   const result = await web.auth.test();
   robot._tumbleSlackTeamId = result.team_id;
+  if (result.url) {
+    robot._tumbleSlackUrl = result.url.replace(/\/$/, '');
+  }
   robot.logger.info(`tumble: Slack team ID resolved: ${result.team_id}`);
 };
 
