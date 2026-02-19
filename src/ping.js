@@ -29,6 +29,7 @@ module.exports = robot => {
   const tumbleBase = env.HUBOT_TUMBLE_BASEURL;
   const apiKey = env.HUBOT_TUMBLE_API_KEY;
   const ircAdminChannel = env.HUBOT_TUMBLE_IRC_ADMIN_CHANNEL;
+  const ircNetwork = env.HUBOT_TUMBLE_IRC_NETWORK;
   const isLocal = isLocalhost(tumbleBase);
 
   // Helper to detect adapter type
@@ -115,9 +116,24 @@ module.exports = robot => {
       } else {
         checks.push('HUBOT_TUMBLE_IRC_ADMIN_CHANNEL: not set (IRC deletes will not work)');
       }
+      if (ircNetwork) {
+        checks.push(`HUBOT_TUMBLE_IRC_NETWORK: ${ircNetwork}`);
+      } else {
+        checks.push('HUBOT_TUMBLE_IRC_NETWORK: not set (client_network will be null)');
+      }
     }
 
-    // Check 4: Adapter type
+    // Check 4: Slack team ID (only relevant for Slack)
+    if (adapterType === 'Slack') {
+      const teamId = robot._tumbleSlackTeamId || env.HUBOT_TUMBLE_SLACK_TEAM_ID;
+      if (teamId) {
+        checks.push(`Slack team ID: ${teamId}`);
+      } else {
+        checks.push('Slack team ID: not resolved (client_network will be null)');
+      }
+    }
+
+    // Check 5: Adapter type
     checks.push(`Adapter: ${adapterType}`);
 
     // Check 5: Server connectivity and Tumble verification
