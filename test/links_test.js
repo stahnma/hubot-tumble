@@ -93,6 +93,45 @@ describe('links', function () {
       expect(scope.isDone()).to.be.false;
     });
 
+    it('ignores links in .rem bot commands', async function () {
+      const scope = nock(TUMBLE_BASE).post('/api/v1/links').reply(200, { id: 1 });
+
+      await room.user.say('alice', '.rem something is https://example.com/rem-link');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.false;
+    });
+
+    it('ignores links in !rem bot commands', async function () {
+      const scope = nock(TUMBLE_BASE).post('/api/v1/links').reply(200, { id: 1 });
+
+      await room.user.say('alice', '!rem something is https://example.com/rem-link');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.false;
+    });
+
+    it('ignores links in ~ factoid commands', async function () {
+      const scope = nock(TUMBLE_BASE).post('/api/v1/links').reply(200, { id: 1 });
+
+      await room.user.say('alice', '~something is https://example.com/factoid-link');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.false;
+    });
+
+    it('ignores links matching custom HUBOT_TUMBLE_IGNORE_PATTERNS', async function () {
+      process.env.HUBOT_TUMBLE_IGNORE_PATTERNS = '^\\s*remind me';
+
+      const scope = nock(TUMBLE_BASE).post('/api/v1/links').reply(200, { id: 1 });
+
+      await room.user.say('alice', 'remind me about https://example.com/later');
+      await wait(100);
+
+      expect(scope.isDone()).to.be.false;
+      delete process.env.HUBOT_TUMBLE_IGNORE_PATTERNS;
+    });
+
     it('handles API errors gracefully', async function () {
       const scope = nock(TUMBLE_BASE).post('/api/v1/links').reply(500, 'Internal Server Error');
 

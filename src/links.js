@@ -8,6 +8,9 @@
 //    HUBOT_TUMBLE_BASEURL - The uri for the tumble server
 //    HUBOT_TUMBLE_ROOMS - List of rooms for which tumble behavior should be
 //      enabled. (Comma separated names).
+//    HUBOT_TUMBLE_IGNORE_PATTERNS - Additional regex patterns (comma-separated)
+//      for messages that should not have links captured. Messages starting with
+//      . ! or ~ are always ignored (covers .rem, !rem, ~factoid, etc).
 //
 // Commands:
 //    None
@@ -24,6 +27,23 @@ const { shouldIgnoreMessage, ensureSlackTeamId, getClientMetadata } = require('.
 
 const env = process.env;
 const DEBUG = env.DEBUG === '1' || env.DEBUG === 'true';
+
+// Messages starting with these prefixes are likely bot commands (e.g. .rem, !rem, ~factoid)
+// and should not have their links captured by Tumble.
+const BOT_COMMAND_PREFIXES = /^\s*[.!~]/;
+
+// Build additional ignore patterns from env var (comma-separated regex strings)
+const buildIgnorePatterns = () => {
+  const raw = env.HUBOT_TUMBLE_IGNORE_PATTERNS;
+  if (!raw) return [];
+  return raw.split(',').map(p => new RegExp(p.trim()));
+};
+
+const isBotCommand = text => {
+  if (BOT_COMMAND_PREFIXES.test(text)) return true;
+  const extraPatterns = buildIgnorePatterns();
+  return extraPatterns.some(re => re.test(text));
+};
 
 // Debug logger that only outputs when DEBUG is enabled
 const debug = message => {
@@ -91,6 +111,12 @@ module.exports = robot => {
     // Skip messages from the bot or quoting the bot
     if (shouldIgnoreMessage(robot, msg)) {
       debug('Ignoring message from/quoting bot');
+      return;
+    }
+
+    // Skip messages that look like bot commands (e.g. .rem, !rem, ~factoid)
+    if (isBotCommand(msg.message.text)) {
+      debug(`Ignoring bot command: ${msg.message.text}`);
       return;
     }
 
